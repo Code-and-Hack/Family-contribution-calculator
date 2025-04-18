@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contribution Calculator Deluxe</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
+      max-width: 900px;
+      margin: auto;
+      padding: 20px;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: #444;
+      margin-bottom: 30px;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    textarea {
+      resize: vertical;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background-color: #fff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+    th {
+      background-color: #007BFF;
+      color: white;
+      padding: 12px;
+      text-align: center;
+    }
+    td {
+       padding: 12px;
+       text-align: center;
+    }
+    tfoot td {
+        font-weight: bold;
+        background-color: #f0f0f0;
+    }
+    .button-group {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    hr {
+      border: 0;
+      height: 1px;
+      background: #ddd;
+      margin: 20px 0;
+    }
+    .family-entry {
+        border: 1px solid #eee;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        background-color: #fff;
+        position: relative; /* Needed for absolute positioning of remove button */
+    }
+    .remove-family-btn {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 25px;
+        height: 25px;
+        line-height: 25px; /* Center the 'X' vertically */
+        text-align: center;
+        cursor: pointer;
+        font-weight: bold;
+        padding: 0; /* Remove default padding */
+    }
+    .remove-family-btn:hover {
+        background-color: #c82333;
+    }
+    #errorMessages {
+        color: #dc3545; /* Red color for errors */
+        margin-top: 15px;
+        padding: 10px;
+        background-color: #f8d7da; /* Light red background */
+        border: 1px solid #f5c6cb; /* Reddish border */
+        border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Contribution Calculator Deluxe ✨</h1>
+
+  <div id="errorMessages" style="display: none;"></div>
+
+  <label>Date: <input type="date" id="date"/></label>
+  <label>Purpose: <input type="text" id="purpose" placeholder="e.g., Weekend Trip, Dinner Party"/></label>
+  <label>Total Cost (SR): <input type="number" id="totalCost" placeholder="Enter total amount spent"/></label>
+  <label>Mode:
+    <select id="mode">
+      <option value="family">Family-wise (Based on Head Count)</option>
+      <option value="adult">Adult-wise (Based on Adult Count)</option>
+    </select>
+  </label>
+
+  <h3>Family Details</h3>
+  <div id="familiesContainer">
+      </div>
+  <button onclick="addFamily()">+ Add Family</button>
+
+  <div class="button-group">
+    <button onclick="calculate()">Calculate Contributions</button>
+    <button onclick="exportPDF()">Export as PDF</button>
+  </div>
+
+  <div id="result" style="margin-top: 30px;">
+      </div>
+
+  <label for="comments">Comments:</label>
+  <textarea id="comments" rows="4" placeholder="Any extra notes?"></textarea>
+
+  <script>
+    // Using a Set to keep track of unique IDs for families, prevents ID collisions if families are removed
+    const familyIDs = new Set();
+    let nextFamilyID = 0;
+
+    function addFamily() {
+      const id = nextFamilyID++;
+      familyIDs.add(id); // Track this ID
+
+      const div = document.createElement("div");
+      div.className = "family-entry"; // Added class for styling and identification
+      div.id = `familyEntry${id}`; // Unique ID for the whole entry div
+      div.innerHTML = `
+        <button class="remove-family-btn" onclick="removeFamily(${id})" title="Remove this family">X</button>
+        <label>Family Name:
+          <input type="text" id="name${id}" placeholder="e.g., Al-Fulanis"/>
+        </label>
+        <label>Total Head Count (Everyone):
+          <input type="number" id="head${id}" min="0" placeholder="e.g., 5"/>
+        </label>
+        <label>Adult Count (18+ or as agreed):
+          <input type="number" id="adult${id}" min="0" placeholder="e.g., 3"/>
+        </label>
+        `;
+      document.getElementById("familiesContainer").appendChild(div);
+    }
+
+    function removeFamily(id) {
+        const familyToRemove = document.getElementById(`familyEntry${id}`);
+        if (familyToRemove) {
+            familyToRemove.remove();
+            familyIDs.delete(id); // Stop tracking this ID
+            // Optionally, recalculate if results are already shown
+            // if (document.getElementById("result").innerHTML.trim() !== "") {
+            //     calculate();
+            // }
+        } else {
+            console.error("Could not find family entry with ID:", id); // Debugging line
+        }
+    }
+
+    function displayError(message) {
+        const errorDiv = document.getElementById("errorMessages");
+        errorDiv.textContent = message;
+        errorDiv.style.display = "block"; // Show the error area
+    }
+
+    function clearErrors() {
+        const errorDiv = document.getElementById("errorMessages");
+        errorDiv.textContent = "";
+        errorDiv.style.display = "none"; // Hide the error area
+    }
+
+    // Helper function to get data and perform validation
+    function getFamilyData() {
+        clearErrors(); // Clear previous errors first
+        const families = [];
+        let totalUnits = 0;
+        let totalHeadCount = 0;
+        let totalAdultCount = 0;
+        let isValid = true; // Flag to track validation status
+
+        const mode = document.getElementById("mode").value;
+
+        if (familyIDs.size === 0) {
+            displayError("Bruh, add at least one family first!");
+            return { isValid: false };
+        }
+
+        for (const id of familyIDs) {
+            const nameInput = document.getElementById(`name${id}`);
+            const headInput = document.getElementById(`head${id}`);
+            const adultInput = document.getElementById(`adult${id}`);
+
+            // Basic check if elements exist (they should, but belt-and-suspenders)
+            if (!nameInput || !headInput || !adultInput) {
+                console.error(`Missing input elements for family ID ${id}`);
+                continue; // Skip this iteration if elements are missing
+            }
+
+            const name = nameInput.value.trim();
+            // Use parseFloat for counts to allow 0, then check if integer and >= 0
+            const head = parseInt(headInput.value, 10);
+            const adult = parseInt(adultInput.value, 10);
+
+            // Validation time!
+            if (name === "") {
+                displayError(`Family #${id + 1} needs a name, my guy.`);
+                nameInput.focus(); // Help user find the issue
+                return { isValid: false };
+            }
+            if (isNaN(head) || head < 0) {
+                displayError(`Invalid head count for ${name || `Family #${id + 1}`}. Enter a number (0 or more).`);
+                headInput.focus();
+                return { isValid: false };
+            }
+             if (isNaN(adult) || adult < 0) {
+                displayError(`Invalid adult count for ${name || `Family #${id + 1}`}. Enter a number (0 or more).`);
+                adultInput.focus();
+                return { isValid: false };
+            }
+             if (adult > head) {
+                displayError(`Adult count can't be more than head count for ${name || `Family #${id + 1}`}. Fix it, genius.`);
+                adultInput.focus();
+                return { isValid: false };
+            }
+
+            const count = mode === 'adult' ? adult : head;
+
+             // Don't add contribution units if count is 0 for the selected mode
+            if (count > 0) {
+                 totalUnits += count;
+            }
+
+            families.push({ id, name, head, adult, count });
+            totalHeadCount += head;
+            totalAdultCount += adult;
+        }
+
+        // Check if totalUnits is 0 (can happen if all counts for the selected mode are 0)
+        // Avoid division by zero later
+        if (totalUnits <= 0 && families.length > 0) {
+             displayError(`Total units (based on ${mode} count) is zero. Cannot calculate contributions unless at least one family has a non-zero count in the selected mode.`);
+             return { isValid: false };
+        }
+
+
+        return { families, totalUnits, totalHeadCount, totalAdultCount, isValid: true, mode };
+    }
+
+
+    function calculate() {
+      clearErrors();
+      const totalCostInput = document.getElementById("totalCost");
+      const totalCost = parseFloat(totalCostInput.value);
+
+      // Validate Total Cost
+      if (isNaN(totalCost) || totalCost <= 0) {
+        displayError("Seriously? Enter a valid total cost (must be a positive number).");
+        totalCostInput.focus();
+        document.getElementById("result").innerHTML = ""; // Clear previous results
+        return;
+      }
+
+      // Get family data using the helper function
+      const data = getFamilyData();
+      if (!data.isValid) {
+        document.getElementById("result").innerHTML = ""; // Clear previous results
+        return; // Stop calculation if data is invalid
+      }
+
+      const { families, totalUnits, totalHeadCount, totalAdultCount, mode } = data;
+
+      // Build HTML Table
+      let html = `
+        <h3>Calculation Results</h3>
+        <p><strong>Date:</strong> ${document.getElementById("date").value || 'Not set'}</p>
+        <p><strong>Purpose:</strong> ${document.getElementById("purpose").value || 'Not specified'}</p>
+        <p><strong>Total Cost:</strong> SR ${totalCost.toFixed(2)}</p>
+        <p><strong>Mode:</strong> ${mode === 'adult' ? 'Adult-wise' : 'Family-wise (Head Count)'}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Head Count</th>
+              <th>Adult Count</th>
+              <th>Contribution (SR)</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      families.forEach(fam => {
+        // Calculate contribution - handle case where fam.count is 0
+        const contribution = fam.count > 0 ? (fam.count / totalUnits) * totalCost : 0;
+        html += `
+          <tr>
+            <td>${fam.name}</td>
+            <td>${fam.head}</td>
+            <td>${fam.adult}</td>
+            <td>${contribution.toFixed(2)}</td>
+          </tr>
+        `;
+      });
+
+      // Add the footer row with totals
+      html += `
+          </tbody>
+          <tfoot>
+             <tr>
+                <td><strong>Totals</strong></td>
+                <td><strong>${totalHeadCount}</strong></td>
+                <td><strong>${totalAdultCount}</strong></td>
+                <td><strong>SR ${totalCost.toFixed(2)}</strong></td>
+             </tr>
+          </tfoot>
+        </table>`;
+
+      document.getElementById("result").innerHTML = html;
+    }
+
+    function exportPDF() {
+        clearErrors();
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Validate general info
+        const date = document.getElementById("date").value;
+        const purpose = document.getElementById("purpose").value.trim();
+        const totalCostInput = document.getElementById("totalCost");
+        const totalCost = parseFloat(totalCostInput.value);
+        const comments = document.getElementById("comments").value.trim();
+
+        if (isNaN(totalCost) || totalCost <= 0) {
+           displayError("PDF Export Failed: Enter a valid total cost first.");
+           totalCostInput.focus();
+           return;
+        }
+        if (!date) {
+           // Optionally warn about missing date, or just proceed
+           // displayError("PDF Export Warning: Date is not set.");
+        }
+
+        // Get family data using the helper function
+        const data = getFamilyData();
+        if (!data.isValid) {
+           displayError("PDF Export Failed: Fix the errors in family details first.");
+           return; // Stop export if data is invalid
+        }
+
+        const { families, totalUnits, totalHeadCount, totalAdultCount, mode } = data;
+
+
+        // Prepare data for the PDF table
+        const head = [['Name', 'Head Count', 'Adult Count', 'Contribution (SR)']];
+        const body = families.map(fam => {
+             const contribution = fam.count > 0 ? (fam.count / totalUnits) * totalCost : 0;
+             return [fam.name, fam.head.toString(), fam.adult.toString(), contribution.toFixed(2)];
+        });
+
+        // Add the total row to the body data for autoTable
+        body.push([
+            { content: 'Totals', styles: { fontStyle: 'bold' } },
+            { content: totalHeadCount.toString(), styles: { fontStyle: 'bold' } },
+            { content: totalAdultCount.toString(), styles: { fontStyle: 'bold' } },
+            { content: `SR ${totalCost.toFixed(2)}`, styles: { fontStyle: 'bold' } }
+        ]);
+
+
+        // --- PDF Generation ---
+        doc.setFontSize(16);
+        doc.text("Contribution Calculation Report", 14, 15);
+
+        doc.setFontSize(11);
+        doc.text(`Date: ${date || 'Not set'}`, 14, 25);
+        doc.text(`Purpose: ${purpose || 'Not specified'}`, 14, 32);
+        doc.text(`Total Cost: SR ${totalCost.toFixed(2)}`, 14, 39);
+        doc.text(`Mode: ${mode === 'adult' ? 'Adult-wise' : 'Family-wise (Head Count)'}`, 14, 46);
+
+        doc.autoTable({
+           head: head,
+           body: body,
+           startY: 55,
+           headStyles: { fillColor: [0, 123, 255] }, // Blue header like the HTML
+           // Styling for the last row (totals) to make it stand out
+           didParseCell: function (data) {
+               if (data.row.index === body.length - 1) { // Target the last row
+                    data.cell.styles.fontStyle = 'bold';
+                    data.cell.styles.fillColor = '#f0f0f0'; // Light grey background
+                    data.cell.styles.textColor = '#333';
+               }
+           }
+        });
+
+        // Add comments section
+        const finalY = doc.lastAutoTable.finalY; // Y position after the table
+        doc.setFontSize(12);
+        doc.text('Comments:', 14, finalY + 10);
+        doc.setFontSize(10);
+        // Use splitTextToSize for basic word wrapping if comments are long
+        const commentsLines = doc.splitTextToSize(comments || '-', doc.internal.pageSize.width - 28); // 14 margin left/right
+        doc.text(commentsLines, 14, finalY + 16);
+
+
+        // Save the PDF
+        const fileName = `Contribution_${purpose || 'Report'}_${date || ''}.pdf`.replace(/[^a-z0-9_-]/gi, '_'); // Basic filename sanitization
+        doc.save(fileName);
+    }
+
+    // Add one family by default on load? Nah, let the user do it.
+    // addFamily(); // Uncomment if you want one family entry to appear initially
+
+  </script>
+</body>
+</html>
