@@ -122,7 +122,7 @@
 </head>
 <body>
   <h1>Contribution Calculator Deluxe ✨</h1>
-  <h4>By Mohamed Nadeem</h4>
+  <h4> Created By Mohamed Nadeem</h4>
 
   <div id="errorMessages" style="display: none;"></div>
 
@@ -131,8 +131,8 @@
   <label>Total Cost (SR): <input type="number" id="totalCost" placeholder="Enter total amount spent"/></label>
   <label>Mode:
     <select id="mode">
-      <option value="family">Family wise (Equal split per family)</option>
-      <option value="headcount">Head Count wise (Based on Member Count)</option>
+      <option value="headcount">Adult Head Count wise</option>
+      <option value="family">Family wise</option>     
     </select>
   </label>
 
@@ -167,10 +167,10 @@
       div.innerHTML = `
         <button class="remove-family-btn" onclick="removeFamily(${id})" title="Remove this family">X</button>
         <label>Family Name:
-          <input type="text" id="name${id}" placeholder="e.g., Riyaz Family"/>
+          <input type="text" id="name${id}" placeholder="e.g., Mohamed Family"/>
         </label>
-        <label>Member Count:
-          <input type="number" id="count${id}" min="0" placeholder="Number of members for head count mode"/>
+        <label>Head Count:
+          <input type="number" id="count${id}" min="0" placeholder="Number of adult head count mode"/>
         </label>
         `;
       document.getElementById("familiesContainer").appendChild(div);
@@ -275,9 +275,9 @@
 
       let modeDescription = '';
       if (mode === 'family') {
-          modeDescription = 'Family wise (Equal split per family)';
+          modeDescription = 'Family wise';
       } else if (mode === 'headcount') {
-          modeDescription = 'Head Count wise (Based on Member Count)';
+          modeDescription = 'Adult Head Count wise';
       }
 
       let html = `
@@ -358,9 +358,9 @@
 
         let modeDescription = '';
         if (mode === 'family') {
-            modeDescription = 'Family wise (Equal split per family)';
+            modeDescription = 'Family wise';
         } else if (mode === 'headcount') {
-            modeDescription = 'Head Count wise (Based on Member Count)';
+            modeDescription = 'Adult Head Count wise';
         }
 
         const head = [['Name', 'Member Count', 'Contribution (SR)']];
